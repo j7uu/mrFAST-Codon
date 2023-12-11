@@ -1,11 +1,20 @@
 from bio import *
 import sys
 
-# Read in the reference genome file 
+if (len(sys.argv)) > 2: 
+    for r in FASTQ(sys.argv[1]):
+        print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
+    print(sys.argv[2])
+
+
+# Read in the reference genome file (sys.argv[2])
 # hash the reference genome
 
-# For each read in the reads file
+# For each read in the reads file (sys.argv[1])
 # Find first, middle and last k-mer
 # Seed the k-mer in the hash table
 
 # Use edit distance with error of <=2 to extend the k-mers
+
+
+
