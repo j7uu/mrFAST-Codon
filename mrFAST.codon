@@ -10,9 +10,24 @@ if (len(sys.argv)) > 2:
 # Read in the reference genome file (sys.argv[2])
 # hash the reference genome
 
+
 # For each read in the reads file (sys.argv[1])
 # Find first, middle and last k-mer
+def k_mer_maker(read, k):
+    k_mer_list = []
+    k_mer_found = []
+
+    for kmer in read.seq.kmers(k):
+        k_mer_list.append(kmer)
+
+    k_mer_found.append(k_mer_list[0])
+    k_mer_found.append(k_mer_list[int(len(k_mer_list)/2)])
+    k_mer_found.append(k_mer_list[-1])
+
+    return k_mer_found
+
 # Seed the k-mer in the hash table
+
 
 # Use edit distance with error of <=2 to extend the k-mers
 
