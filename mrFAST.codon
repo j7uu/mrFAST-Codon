@@ -1,0 +1,11 @@
+from bio import *
+import sys
+
+# Read in the reference genome file 
+# hash the reference genome
+
+# For each read in the reads file
+# Find first, middle and last k-mer
+# Seed the k-mer in the hash table
+
+# Use edit distance with error of <=2 to extend the k-mers
