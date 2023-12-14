@@ -12,31 +12,45 @@ def murmur(key, seed):
     h *= m; h ^= h >> r
     return h
 
-
+# check CLI arguments
+# note: 100000000 was chosen to accomodate the testing reference genome (chr22.fa)
 if (len(sys.argv)) > 2: 
-    tester = []
-    for r in FASTQ(sys.argv[1]):
-        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
-        # just for testing below
-        # for kmer in r.seq.kmers(k=8):
-        #     tester.append(kmer)
-        pass
-    
+    hash_table = [None] * 100000000
+
     # Read in the reference genome file (sys.argv[2])
     print("-----------------------------------------")
-    print("Reference Genome")
+    print("Reference Genome" + (": ") + str(sys.argv[2]))
 
     record = next(FASTA(sys.argv[2], fai=False))
-    ref_name, ref = record.name, str(record.seq).upper()
+    ref_name, ref = record.name, record.seq
 
-    print(ref_name)
-    print(len(ref))
+    # hash the reference genome 
+    print("Hashing reference genome...")
+    for kmer in ref.kmers(k=12):
+        index = murmur(kmer, 13)
+        index = index % len(hash_table)
+        if hash_table[index] != None and hash_table[index] != kmer:
+            #  linear probing (by 3)
+            while hash_table[index] != None and hash_table[index] != kmer:
+                index += 3
+                if index >= len(hash_table):
+                    index = index % len(hash_table)
+            if hash_table[index] == kmer:
+                pass
+            elif hash_table[index] == None:
+                hash_table[index] = kmer
+        else:
+            hash_table[index] = kmer
+    print("Done hashing reference genome!")
 
-    # first input must be a k-mer
-    print(str(murmur(tester[0], 13)))
-
-# hash the reference genome
-
+    print("-----------------------------------------")
+    print("Reads" + (": ") + str(sys.argv[1]))
+    # Read in the reads file (sys.argv[1])
+    for r in FASTQ(sys.argv[1]):
+        # need to make kmers and seed
+        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
+        # just for testing below
+        pass
 
 # For each read in the reads file (sys.argv[1])
 # Find first, middle and last k-mer
