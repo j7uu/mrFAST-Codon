@@ -1,13 +1,40 @@
 from bio import *
 import sys
 
+# simple implementation of murmur hash taken from assignment 2
+def murmur(key, seed):
+    m, r = 0xc6a4a7935bd1e995, 47
+    h = seed ^ (8 * m)
+    k = int(key) * m
+    k ^= k >> r; k *= m
+    h ^= k
+    h *= m; h ^= h >> r
+    h *= m; h ^= h >> r
+    return h
+
+
 if (len(sys.argv)) > 2: 
+    tester = []
     for r in FASTQ(sys.argv[1]):
-        print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
-    print(sys.argv[2])
+        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
+        # just for testing below
+        # for kmer in r.seq.kmers(k=8):
+        #     tester.append(kmer)
+        pass
+    
+    # Read in the reference genome file (sys.argv[2])
+    print("-----------------------------------------")
+    print("Reference Genome")
 
+    record = next(FASTA(sys.argv[2], fai=False))
+    ref_name, ref = record.name, str(record.seq).upper()
 
-# Read in the reference genome file (sys.argv[2])
+    print(ref_name)
+    print(len(ref))
+
+    # first input must be a k-mer
+    print(str(murmur(tester[0], 13)))
+
 # hash the reference genome
 
 
