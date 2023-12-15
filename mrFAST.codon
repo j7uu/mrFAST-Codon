@@ -13,10 +13,12 @@ def murmur(key, seed):
     return h
 
 # check CLI arguments
-# note: 100000000 was chosen to accomodate the testing reference genome (chr22.fa)
+# note: 100000000 was chosen to accomodate the testing reference genome (chrM.fa) and give lower load factor
+# note: 35000000 was chosen to accomodate the testing reference genome (chrM.fa)
 if (len(sys.argv)) > 2: 
-    hash_table = [None] * 100000000
-
+    ref_genome = [None] * 35000000
+    hash_table = [{}] * 100000000
+    ref_count = 0
     # Read in the reference genome file (sys.argv[2])
     print("-----------------------------------------")
     print("Reference Genome" + (": ") + str(sys.argv[2]))
@@ -26,25 +28,47 @@ if (len(sys.argv)) > 2:
 
     # hash the reference genome 
     print("Hashing reference genome...")
+    print("ref array: " + str(len(ref_genome)))
     for kmer in ref.kmers(k=12):
+        ref_genome[ref_count] = kmer
+
+        entry = {
+            kmer: [ref_count],
+        }
+        
         index = murmur(kmer, 13)
         index = index % len(hash_table)
-        if hash_table[index] != None and hash_table[index] != kmer:
+        if hash_table[index] != {} and [key for key in hash_table[index]] != [kmer]:
             #  linear probing (by 3)
-            while hash_table[index] != None and hash_table[index] != kmer:
+            while hash_table[index] != {} and [key for key in hash_table[index]] != [kmer]:
                 index += 3
                 if index >= len(hash_table):
                     index = index % len(hash_table)
-            if hash_table[index] == kmer:
-                pass
-            elif hash_table[index] == None:
-                hash_table[index] = kmer
+            if [key for key in hash_table[index]] == [kmer]:
+                hash_table[index][kmer].append(ref_count)
+            elif hash_table[index] == {}:
+                hash_table[index] = entry
+
+        elif [key for key in hash_table[index]] == [kmer]:
+            hash_table[index][kmer].append(ref_count)
+            print(str(hash_table[index][kmer]))
         else:
-            hash_table[index] = kmer
+            hash_table[index] = entry
+        ref_count += 1
+
     print("Done hashing reference genome!")
 
+    print("Reference count: " + str(ref_count))
     print("-----------------------------------------")
     print("Reads" + (": ") + str(sys.argv[1]))
+    
+
+    # HOW TO CAST IT BACK TO KMER !!!!!!!!!!!!!!!!!!!
+    # print("testing")
+    # fake = "ACTG"
+    # new_kmer = seq.__new__(fake)
+    # print(~new_kmer)
+
     # Read in the reads file (sys.argv[1])
     for r in FASTQ(sys.argv[1]):
         # need to make kmers and seed
