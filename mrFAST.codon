@@ -12,31 +12,69 @@ def murmur(key, seed):
     h *= m; h ^= h >> r
     return h
 
-
+# check CLI arguments
+# note: 100000000 was chosen to accomodate the testing reference genome (chrM.fa) and give lower load factor
+# note: 35000000 was chosen to accomodate the testing reference genome (chrM.fa)
 if (len(sys.argv)) > 2: 
-    tester = []
-    for r in FASTQ(sys.argv[1]):
-        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
-        # just for testing below
-        # for kmer in r.seq.kmers(k=8):
-        #     tester.append(kmer)
-        pass
-    
+    ref_genome = [None] * 35000000
+    hash_table = [{}] * 100000000
+    ref_count = 0
     # Read in the reference genome file (sys.argv[2])
     print("-----------------------------------------")
-    print("Reference Genome")
+    print("Reference Genome" + (": ") + str(sys.argv[2]))
 
     record = next(FASTA(sys.argv[2], fai=False))
-    ref_name, ref = record.name, str(record.seq).upper()
+    ref_name, ref = record.name, record.seq
 
-    print(ref_name)
-    print(len(ref))
+    # hash the reference genome 
+    print("Hashing reference genome...")
+    print("ref array: " + str(len(ref_genome)))
+    for kmer in ref.kmers(k=12):
+        ref_genome[ref_count] = kmer
 
-    # first input must be a k-mer
-    print(str(murmur(tester[0], 13)))
+        entry = {
+            kmer: [ref_count],
+        }
+        
+        index = murmur(kmer, 13)
+        index = index % len(hash_table)
+        if hash_table[index] != {} and [key for key in hash_table[index]] != [kmer]:
+            #  linear probing (by 3)
+            while hash_table[index] != {} and [key for key in hash_table[index]] != [kmer]:
+                index += 3
+                if index >= len(hash_table):
+                    index = index % len(hash_table)
+            if [key for key in hash_table[index]] == [kmer]:
+                hash_table[index][kmer].append(ref_count)
+            elif hash_table[index] == {}:
+                hash_table[index] = entry
 
-# hash the reference genome
+        elif [key for key in hash_table[index]] == [kmer]:
+            hash_table[index][kmer].append(ref_count)
+            print(str(hash_table[index][kmer]))
+        else:
+            hash_table[index] = entry
+        ref_count += 1
 
+    print("Done hashing reference genome!")
+
+    print("Reference count: " + str(ref_count))
+    print("-----------------------------------------")
+    print("Reads" + (": ") + str(sys.argv[1]))
+    
+
+    # HOW TO CAST IT BACK TO KMER !!!!!!!!!!!!!!!!!!!
+    # print("testing")
+    # fake = "ACTG"
+    # new_kmer = seq.__new__(fake)
+    # print(~new_kmer)
+
+    # Read in the reads file (sys.argv[1])
+    for r in FASTQ(sys.argv[1]):
+        # need to make kmers and seed
+        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
+        # just for testing below
+        pass
 
 # For each read in the reads file (sys.argv[1])
 # Find first, middle and last k-mer
