@@ -13,12 +13,14 @@ def murmur(key, seed):
     return h
 
 # check CLI arguments
-# note: 100000000 was chosen to accomodate the testing reference genome (chrM.fa) and give lower load factor
-# note: 35000000 was chosen to accomodate the testing reference genome (chrM.fa)
-if (len(sys.argv)) > 2:
-    ref_genome = [None] * 35000000
-    hash_table = [{}] * 100000000
+# note: 35000 was chosen to accomodate the testing reference genome (chrM.fa) and give lower load factor
+# note: 20000 was chosen to accomodate the testing reference genome (chrM.fa)
+if (len(sys.argv)) > 2: 
+    ref_genome = [None] * 20000
+    hash_table = [{}] * 35000
+
     ref_count = 0
+    matched = 0
     # Read in the reference genome file (sys.argv[2])
     print("-----------------------------------------")
     print("Reference Genome" + (": ") + str(sys.argv[2]))
@@ -28,8 +30,8 @@ if (len(sys.argv)) > 2:
 
     # hash the reference genome
     print("Hashing reference genome...")
-    print("ref array: " + str(len(ref_genome)))
-    for kmer in ref.kmers(k=12):
+    print("Ref array length: " + str(len(ref_genome)))
+    for kmer in ref.kmers(k=8):
         ref_genome[ref_count] = kmer
 
         entry = {
@@ -51,47 +53,70 @@ if (len(sys.argv)) > 2:
 
         elif [key for key in hash_table[index]] == [kmer]:
             hash_table[index][kmer].append(ref_count)
-            print(str(hash_table[index][kmer]))
         else:
             hash_table[index] = entry
         ref_count += 1
-
+    # print(hash_table[index])
+    # print(hash_table)
     print("Done hashing reference genome!")
 
     print("Reference count: " + str(ref_count))
     print("-----------------------------------------")
     print("Reads" + (": ") + str(sys.argv[1]))
 
-
-    # HOW TO CAST IT BACK TO KMER !!!!!!!!!!!!!!!!!!!
-    # print("testing")
-    # fake = "ACTG"
-    # new_kmer = seq.__new__(fake)
-    # print(~new_kmer)
-
     # Read in the reads file (sys.argv[1])
+    
     for r in FASTQ(sys.argv[1]):
+        name, read = r.name, r.read
+        new_read = seq.__new__(str(read))
+
+        k_mer_matched = []
+
+        k_mer_list = []
+        k_mer_found = []
+        for kmer in read.kmers(k=8):
+            k_mer_list.append(kmer)
+
+        # Find first, middle and last k-mer
+        k_mer_found.append(k_mer_list[0])
+        k_mer_found.append(k_mer_list[int(len(k_mer_list)/2)])
+        k_mer_found.append(k_mer_list[-1])
+
+        # Seed the kmers in the hash table
+        for k in k_mer_found:
+            h = murmur(k, 13)
+            h = h % len(hash_table)
+
+            if hash_table[h] != {} and [key for key in hash_table[h]] != [k]:
+                #  linear probing (by 3)
+                while hash_table[h] != {} and [key for key in hash_table[h]] != [k]:
+                    h += 3
+                    if h >= len(hash_table):
+                        h = h % len(hash_table)
+                if [key for key in hash_table[h]] == [k]:
+                    i = hash_table[h][k][0]
+                    k_mer_matched.append(hash_table[h])
+                    matched += 1
+                elif hash_table[h] == {}:
+                    # not found in hash table
+                    pass
+
+            elif [key for key in hash_table[h]] == [k]:
+                i = hash_table[h][k][0]
+                k_mer_matched.append(hash_table[h])
+                matched += 1
+            else:
+                # no match found in hash table
+                pass
+
         # need to make kmers and seed
-        # print(str(r.name) + (" ") + str(r.read) + (" ") + str(len((r.read))))
-        # just for testing below
-        pass
-
-# For each read in the reads file (sys.argv[1])
-# Find first, middle and last k-mer
-def k_mer_maker(read, k):
-    k_mer_list = []
-    k_mer_found = []
-
-    for kmer in read.seq.kmers(k):
-        k_mer_list.append(kmer)
-
-    k_mer_found.append(k_mer_list[0])
-    k_mer_found.append(k_mer_list[int(len(k_mer_list)/2)])
-    k_mer_found.append(k_mer_list[-1])
-
-    return k_mer_found
-
-# Seed the k-mer in the hash table
+        # extract index of reference genome and extend for each matched kmer
+        print("K-mer matched: " + str(k_mer_matched))
+        
+        # Use edit distance with error of <=2 to extend the k-mers
+        
+    print("Matched: " + str(matched))
+        # print(str(r.name) + (" ") + str(r.read))
 
 
 # Compute the edit distance between two sequences.
