@@ -15,7 +15,7 @@ def murmur(key, seed):
 # check CLI arguments
 # note: 100000000 was chosen to accomodate the testing reference genome (chrM.fa) and give lower load factor
 # note: 35000000 was chosen to accomodate the testing reference genome (chrM.fa)
-if (len(sys.argv)) > 2: 
+if (len(sys.argv)) > 2:
     ref_genome = [None] * 35000000
     hash_table = [{}] * 100000000
     ref_count = 0
@@ -26,7 +26,7 @@ if (len(sys.argv)) > 2:
     record = next(FASTA(sys.argv[2], fai=False))
     ref_name, ref = record.name, record.seq
 
-    # hash the reference genome 
+    # hash the reference genome
     print("Hashing reference genome...")
     print("ref array: " + str(len(ref_genome)))
     for kmer in ref.kmers(k=12):
@@ -35,7 +35,7 @@ if (len(sys.argv)) > 2:
         entry = {
             kmer: [ref_count],
         }
-        
+
         index = murmur(kmer, 13)
         index = index % len(hash_table)
         if hash_table[index] != {} and [key for key in hash_table[index]] != [kmer]:
@@ -61,7 +61,7 @@ if (len(sys.argv)) > 2:
     print("Reference count: " + str(ref_count))
     print("-----------------------------------------")
     print("Reads" + (": ") + str(sys.argv[1]))
-    
+
 
     # HOW TO CAST IT BACK TO KMER !!!!!!!!!!!!!!!!!!!
     # print("testing")
@@ -94,7 +94,142 @@ def k_mer_maker(read, k):
 # Seed the k-mer in the hash table
 
 
-# Use edit distance with error of <=2 to extend the k-mers
+# Compute the edit distance between two sequences.
+# Exit early if the edit distance is clearly greater than a supplied threshold.
+#
+# Implements "Ukkonen's Approximate String Matching algorithm" with enhancements by
+# Hal Berghel and David Roach.
+#
+# This is a port of Sune Simonsen's Javascript code (https://github.com/sunesimonsen/ukkonen) to Codon.
+def edit_distance(a, b, threshold = sys.maxsize):
+    if a == b:
+        return 0
 
+    a_len = len(a)
+    b_len = len(b)
 
+    # Normalize arguments so that len(b) >= len(a).
+    if a_len > b_len:
+        temp = a
+        a = b
+        b = temp
+        temp = a_len
+        a_len = b_len
+        b_len = temp
 
+    # Trim any common suffix.
+    while a_len > 0 and a[a_len - 1] == b[b_len - 1]:
+        a_len -= 1
+        b_len -= 1
+
+    if a_len == 0:
+        return b_len
+
+    t_start = 0
+
+    # Trim any common prefix.
+    while t_start < a_len and a[t_start] == b[t_start]:
+        t_start += 1
+
+    a_len -= t_start
+    b_len -= t_start
+
+    if a_len == 0:
+        return b_len
+
+    if b_len < threshold:
+        threshold = b_len
+
+    d_len = b_len - a_len
+
+    if threshold < d_len:
+        return threshold
+
+    zero_k = (min(a_len, threshold) >> 1) + 2
+
+    array_length = d_len + zero_k * 2 + 2
+    current_row = [-1] * array_length
+    next_row = [-1] * array_length
+
+    j = 0
+    condition_row = d_len + zero_k
+    end_max = condition_row << 1
+
+    while next_row[condition_row] < a_len and j <= threshold:
+        j += 1
+
+        temp = current_row
+        current_row = next_row
+        next_row = temp
+
+        current_cell = -1
+
+        if j <= zero_k:
+            start = 1 - j
+            next_cell = j - 2
+        else:
+            start = j - (zero_k << 1) + 1
+            next_cell = current_row[zero_k + start]
+
+        if j <= condition_row:
+            end = j
+            next_row[zero_k + j] = -1
+        else:
+            end = end_max - j
+
+        row_index = start + zero_k
+        for k in range(start, end):
+            previous_cell = current_cell
+            current_cell = next_cell
+            next_cell = current_row[row_index + 1]
+
+            t = max(current_cell + 1, previous_cell, next_cell + 1)
+
+            while t < a_len and t + k < b_len and a[t_start + t] == b[t_start + t + k]:
+                t += 1
+
+            next_row[row_index] = t
+            row_index += 1
+
+    return j - 1
+
+def test_edit_distance():
+    test_cases = [
+        { 'name1': "ABCDE", 'name2': "FGHIJ", 'distance': "5" },
+        { 'name1': "AVERY", 'name2': "GARVEY", 'distance': "3" },
+        { 'name1': "ADCROFT", 'name2': "ADDESSI", 'distance': "5" },
+        { 'name1': "BAIRD", 'name2': "BAISDEN", 'distance': "3" },
+        { 'name1': "BOGGAN", 'name2': "BOGGS", 'distance': "2" },
+        { 'name1': "CLAYTON", 'name2': "CLEARY", 'distance': "5" },
+        { 'name1': "DYBAS", 'name2': "DYCKMAN", 'distance': "4" },
+        { 'name1': "EMINETH", 'name2': "EMMERT", 'distance': "4" },
+        { 'name1': "GALANTE", 'name2': "GALICKI", 'distance': "4" },
+        { 'name1': "HARDIN", 'name2': "HARDING", 'distance': "1" },
+        { 'name1': "KEHOE", 'name2': "KEHR", 'distance': "2" },
+        { 'name1': "LOWRY", 'name2': "LUBARSK", 'distance': "5" },
+        { 'name1': "MAGALLAN", 'name2': "MAGANA", 'distance': "3" },
+        { 'name1': "MAYO", 'name2': "MAYS", 'distance': "1" },
+        { 'name1': "MOENY", 'name2': "MOFFETT", 'distance': "4" },
+        { 'name1': "PARE", 'name2': "PARENT", 'distance': "2" },
+        { 'name1': "RAMEY", 'name2': "RAMFREY", 'distance': "2" },
+        { 'name1': "ofosid", 'name2': "daej", 'distance': "6" },
+        { 'name1': "of", 'name2': "lisib", 'distance': "5" },
+        { 'name1': "nuhijoow", 'name2': "ru", 'distance': "7" },
+        { 'name1': "w", 'name2': "4", 'distance': "1" },
+        { 'name1': "", 'name2': "", 'distance': "0" },
+        { 'name1': "", 'name2': "wat", 'distance': "3" },
+        { 'name1': "wat", 'name2': "", 'distance': "3" },
+        { 'name1': "wat", 'name2': "wat", 'distance': "0" },
+        { 'name1': "Ukkonen", 'name2': "Levenshtein", 'distance': "8" },
+    ]
+    for test_case in test_cases:
+        a = seq(test_case['name1'])
+        b = seq(test_case['name2'])
+        d_expected = int(test_case['distance'])
+        d_actual = edit_distance(a, b)
+        message = ''
+        if d_actual != d_expected:
+            message = f' expected {d_expected}!'
+        print(f'edit_distance({a}, {b}) => {d_actual}{message}')
+
+test_edit_distance()
